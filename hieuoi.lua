@@ -426,4 +426,80 @@ end
 refreshAimPlayers()
 Players.PlayerAdded:Connect(refreshAimPlayers)
 Players.PlayerRemoving:Connect(refreshAimPlayers)
-pnrit("System: checking...")
+-------------------------------------------------
+-- FULL BODY ESP (RESPAWN FIX + FAR RANGE)
+-------------------------------------------------
+
+local espEnabled = false
+local espCache = {}
+
+local function applyESP(player, character)
+
+    if player == LocalPlayer then return end
+    if not character then return end
+
+    if espCache[player] then
+        espCache[player]:Destroy()
+    end
+
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "CharMucESP"
+    highlight.FillColor = Color3.fromRGB(0,255,120)
+    highlight.OutlineColor = Color3.fromRGB(0,200,100)
+    highlight.FillTransparency = 0.4
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Enabled = espEnabled
+    highlight.Adornee = character
+    highlight.Parent = game.CoreGui
+
+    espCache[player] = highlight
+
+end
+
+local function setupPlayer(player)
+
+    if player == LocalPlayer then return end
+
+    if player.Character then
+        applyESP(player, player.Character)
+    end
+
+    player.CharacterAdded:Connect(function(char)
+        task.wait(0.3)
+        applyESP(player, char)
+    end)
+
+end
+
+for _,player in pairs(Players:GetPlayers()) do
+    setupPlayer(player)
+end
+
+Players.PlayerAdded:Connect(setupPlayer)
+
+Players.PlayerRemoving:Connect(function(player)
+    if espCache[player] then
+        espCache[player]:Destroy()
+        espCache[player] = nil
+    end
+end)
+
+-------------------------------------------------
+-- ESP TOGGLE
+-------------------------------------------------
+
+Main:CreateToggle({
+    Name = "Player ESP",
+    CurrentValue = false,
+    Callback = function(v)
+
+        espEnabled = v
+
+        for _,esp in pairs(espCache) do
+            esp.Enabled = v
+        end
+
+    end
+})
+
