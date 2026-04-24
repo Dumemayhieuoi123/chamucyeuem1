@@ -8,8 +8,9 @@ local Window = Rayfield:CreateWindow({
    KeySystem = false
 })
 
-local Tab = Window:CreateTab("Main", 4483362458)
-local Combat = Window:CreateTab("Combat(Beta)", 4483362458)
+local Main = Window:CreateTab("Main", 4483362458)
+local Aimbot = Window:CreateTab("Aimbot", 4483362458)
+local Combat = Window:CreateTab("Combat (beta)", 4483362458)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -20,7 +21,7 @@ local UIS = game:GetService("UserInputService")
 -------------------------------------------------
 -- WALK SPEED
 -------------------------------------------------
-Tab:CreateSlider({
+Main:CreateSlider({
    Name = "WalkSpeed",
    Range = {16,200},
    Increment = 1,
@@ -34,7 +35,7 @@ Tab:CreateSlider({
 -------------------------------------------------
 -- JUMP POWER
 -------------------------------------------------
-Tab:CreateSlider({
+Main:CreateSlider({
    Name = "JumpPower",
    Range = {50,200},
    Increment = 5,
@@ -49,7 +50,8 @@ Tab:CreateSlider({
 -- NOCLIP
 -------------------------------------------------
 local noclip = false
-Tab:CreateToggle({
+
+Main:CreateToggle({
    Name = "Noclip",
    CurrentValue = false,
    Callback = function(v)
@@ -73,7 +75,7 @@ end)
 local flying = false
 local flySpeed = 60
 
-Tab:CreateToggle({
+Main:CreateToggle({
    Name = "Fly",
    CurrentValue = false,
    Callback = function(v)
@@ -81,7 +83,7 @@ Tab:CreateToggle({
    end,
 })
 
-Tab:CreateSlider({
+Main:CreateSlider({
    Name = "Fly Speed",
    Range = {20,300},
    Increment = 5,
@@ -107,43 +109,270 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
--------------------------------------------------
--- AIMLOCK
--------------------------------------------------
-local aimlock = false
+---------------------------------------------------
+-- FLING SYSTEM
+---------------------------------------------------
 
-Tab:CreateToggle({
-    Name = "Aimlock",
+local selectedTargets = {}
+local flingActive = false
+local FPDH = workspace.FallenPartsDestroyHeight
+
+local function CharMucFling(TargetPlayer)
+
+    local Character = LocalPlayer.Character
+    if not Character then return end
+
+    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+    local RootPart = Character:FindFirstChild("HumanoidRootPart")
+
+    if not Humanoid or not RootPart then return end
+
+    local TCharacter = TargetPlayer.Character
+    if not TCharacter then return end
+
+    local TRoot = TCharacter:FindFirstChild("HumanoidRootPart")
+    if not TRoot then return end
+
+    local oldPos = RootPart.CFrame
+
+    workspace.FallenPartsDestroyHeight = 0/0
+
+    local BV = Instance.new("BodyVelocity")
+    BV.Parent = RootPart
+    BV.MaxForce = Vector3.new(9e9,9e9,9e9)
+
+    for i = 1,20 do
+        if not flingActive then break end
+
+        RootPart.CFrame = TRoot.CFrame * CFrame.new(0,1,0)
+
+        RootPart.Velocity = Vector3.new(
+            math.random(-999999,999999),
+            math.random(999999,9999999),
+            math.random(-999999,999999)
+        )
+
+        RootPart.RotVelocity = Vector3.new(999999,999999,999999)
+
+        task.wait()
+    end
+
+    BV:Destroy()
+
+    RootPart.CFrame = oldPos
+    workspace.FallenPartsDestroyHeight = FPDH
+
+end
+
+---------------------------------------------------
+-- START FLING
+---------------------------------------------------
+
+local function StartFling()
+
+    flingActive = true
+
+    task.spawn(function()
+        while flingActive do
+
+            for _,plr in pairs(selectedTargets) do
+                if flingActive and plr then
+                    CharMucFling(plr)
+                    task.wait(0.2)
+                end
+            end
+
+            task.wait(0.1)
+        end
+    end)
+
+end
+
+---------------------------------------------------
+-- STOP FLING
+---------------------------------------------------
+
+local function StopFling()
+    flingActive = false
+end
+
+---------------------------------------------------
+-- PLAYER DROPDOWN
+---------------------------------------------------
+
+local dropdown = Combat:CreateDropdown({
+    Name = "Select Players To Fling",
+    Options = {},
+    MultipleOptions = true,
+    CurrentOption = {},
+    Callback = function(options)
+
+        selectedTargets = {}
+
+        for _,name in pairs(options) do
+            local plr = Players:FindFirstChild(name)
+            if plr then
+                table.insert(selectedTargets, plr)
+            end
+        end
+
+    end,
+})
+
+---------------------------------------------------
+-- FLING TOGGLE
+---------------------------------------------------
+
+Combat:CreateToggle({
+    Name = "Safe Fling Loop",
     CurrentValue = false,
     Callback = function(v)
-        aimlock = v
+
+        if v then
+            StartFling()
+        else
+            StopFling()
+        end
+
+    end,
+})
+
+---------------------------------------------------
+-- REFRESH PLAYER LIST
+---------------------------------------------------
+
+local function RefreshPlayers()
+
+    local list = {}
+
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            table.insert(list, plr.Name)
+        end
+    end
+
+    dropdown:Refresh(list)
+
+end
+
+RefreshPlayers()
+
+Players.PlayerAdded:Connect(RefreshPlayers)
+Players.PlayerRemoving:Connect(RefreshPlayers)
+-------------------------------------------------
+-- AIMBOT SYSTEM
+-------------------------------------------------
+
+local aimbotEnabled = false
+local silentAim = false
+local multiTarget = false
+local aimFov = 200
+local targetPlayers = {}
+
+-- FOV CIRCLE
+local circle = Drawing.new("Circle")
+circle.Visible = false
+circle.Radius = aimFov
+circle.Thickness = 2
+circle.Color = Color3.fromRGB(255,255,255)
+circle.Filled = false
+circle.NumSides = 100
+
+RunService.RenderStepped:Connect(function()
+    circle.Position = UIS:GetMouseLocation()
+    circle.Radius = aimFov
+    circle.Visible = aimbotEnabled
+end)
+
+-------------------------------------------------
+-- PLAYER DROPDOWN
+-------------------------------------------------
+
+local aimDropdown = Aimbot:CreateDropdown({
+    Name = "Select Target",
+    Options = {},
+    MultipleOptions = true,
+    CurrentOption = {},
+    Callback = function(options)
+
+        targetPlayers = {}
+
+        for _,name in pairs(options) do
+            local plr = Players:FindFirstChild(name)
+            if plr then
+                table.insert(targetPlayers, plr)
+            end
+        end
+
+    end,
+})
+
+-------------------------------------------------
+-- ENABLE AIMBOT
+-------------------------------------------------
+
+Aimbot:CreateToggle({
+    Name = "Enable Aimbot",
+    CurrentValue = false,
+    Callback = function(v)
+        aimbotEnabled = v
     end
 })
 
-RunService.RenderStepped:Connect(function()
-    if not aimlock then return end
+-------------------------------------------------
+-- MULTI TARGET
+-------------------------------------------------
+
+Aimbot:CreateToggle({
+    Name = "Multi Target",
+    CurrentValue = false,
+    Callback = function(v)
+        multiTarget = v
+    end
+})
+
+-------------------------------------------------
+-- SILENT AIM
+-------------------------------------------------
+
+Aimbot:CreateToggle({
+    Name = "Silent Aim",
+    CurrentValue = false,
+    Callback = function(v)
+        silentAim = v
+    end
+})
+
+-------------------------------------------------
+-- FOV SIZE
+-------------------------------------------------
+
+Aimbot:CreateSlider({
+    Name = "FOV Size",
+    Range = {50,500},
+    Increment = 10,
+    CurrentValue = 200,
+    Callback = function(v)
+        aimFov = v
+    end
+})
+
+-------------------------------------------------
+-- GET CLOSEST TARGET
+-------------------------------------------------
+
+local function getClosest()
 
     local closest = nil
-    local shortest = math.huge
+    local shortest = aimFov
 
-    for _,plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer
-        and plr.Character
-        and plr.Character:FindFirstChild("Head")
-        and plr.Character:FindFirstChild("Humanoid")
-        and plr.Character.Humanoid.Health > 0 then
+    for _,plr in pairs(targetPlayers) do
+        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("Head") then
 
-            local pos, visible = Camera:WorldToViewportPoint(
-                plr.Character.Head.Position
-            )
+            local pos, visible = Camera:WorldToViewportPoint(plr.Character.Head.Position)
 
             if visible then
-                local center = Vector2.new(
-                    Camera.ViewportSize.X/2,
-                    Camera.ViewportSize.Y/2
-                )
-
-                local dist = (Vector2.new(pos.X,pos.Y) - center).Magnitude
+                local dist = (Vector2.new(pos.X,pos.Y) - UIS:GetMouseLocation()).Magnitude
 
                 if dist < shortest then
                     shortest = dist
@@ -153,143 +382,47 @@ RunService.RenderStepped:Connect(function()
         end
     end
 
-    if closest and closest.Character then
-        Camera.CFrame = Camera.CFrame:Lerp(
-            CFrame.new(Camera.CFrame.Position, closest.Character.Head.Position),
-            0.2
-        )
+    return closest
+end
+
+-------------------------------------------------
+-- AIMBOT LOOP
+-------------------------------------------------
+
+RunService.RenderStepped:Connect(function()
+
+    if not aimbotEnabled then return end
+
+    local target = getClosest()
+
+    if target and target.Character and target.Character:FindFirstChild("Head") then
+
+        local pos = target.Character.Head.Position
+
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, pos)
+
     end
+
 end)
 
 -------------------------------------------------
--- CHẢ MỰC FLING (BASED ON K1LAS1K)
+-- REFRESH PLAYER LIST
 -------------------------------------------------
-local selectedPlayers = {}
-local playerMap = {}
-local flingLoop = false
-local lastPos = nil
 
-local function CharMucFling(targetPlayer)
-    local Character = LocalPlayer.Character
-    if not Character then return end
+local function refreshAimPlayers()
 
-    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
-    local RootPart = Character:FindFirstChild("HumanoidRootPart")
-    if not Humanoid or not RootPart then return end
-
-    local TCharacter = targetPlayer.Character
-    if not TCharacter then return end
-
-    local TRootPart = TCharacter:FindFirstChild("HumanoidRootPart")
-    local THumanoid = TCharacter:FindFirstChildOfClass("Humanoid")
-    if not TRootPart or not THumanoid then return end
-
-    if not lastPos then
-        lastPos = RootPart.CFrame
-    end
-
-    Humanoid.PlatformStand = true
-
-    local BV = Instance.new("BodyVelocity")
-    BV.MaxForce = Vector3.new(9e9,9e9,9e9)
-    BV.Velocity = Vector3.new(0,0,0)
-    BV.Parent = RootPart
-
-    local start = tick()
-    local angle = 0
-
-    repeat
-        angle += 100
-
-        RootPart.CFrame =
-            TRootPart.CFrame *
-            CFrame.new(0,1.5,0) *
-            CFrame.Angles(math.rad(angle),0,0)
-
-        RootPart.Velocity = Vector3.new(9e7,9e7,9e7)
-        RootPart.RotVelocity = Vector3.new(9e8,9e8,9e8)
-
-        RunService.Heartbeat:Wait()
-
-    until tick() - start > 2.5 or not flingLoop
-
-    BV:Destroy()
-    Humanoid.PlatformStand = false
-end
-
--------------------------------------------------
--- SELECT PLAYER
--------------------------------------------------
-local dropdown = Combat:CreateDropdown({
-   Name = "Select Players To Fling",
-   Options = {},
-   MultipleOptions = true,
-   Callback = function(opt)
-        selectedPlayers = {}
-        for _,name in pairs(opt) do
-            local plr = Players:FindFirstChild(name)
-            if plr then
-                table.insert(selectedPlayers, plr)
-            end
-        end
-   end,
-})
-
-local function refreshPlayers()
     local list = {}
 
-    for _,p in pairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            table.insert(list, p.Name)
+    for _,plr in pairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            table.insert(list, plr.Name)
         end
     end
 
-    dropdown:Refresh(list)
+    aimDropdown:Refresh(list)
+
 end
 
-refreshPlayers()
-Players.PlayerAdded:Connect(refreshPlayers)
-Players.PlayerRemoving:Connect(refreshPlayers)
-
--------------------------------------------------
--- FLING LOOP
--------------------------------------------------
-local function startFling()
-    flingLoop = true
-
-    task.spawn(function()
-        while flingLoop do
-            for _,plr in pairs(selectedPlayers) do
-                if not flingLoop then break end
-                CharMucFling(plr)
-            end
-
-            for i=1,10 do
-                if not flingLoop then break end
-                task.wait(0.1)
-            end
-        end
-    end)
-end
-
-local function stopFling()
-    flingLoop = false
-
-    if lastPos and LocalPlayer.Character then
-        LocalPlayer.Character:WaitForChild("HumanoidRootPart").CFrame = lastPos
-    end
-
-    lastPos = nil
-end
-
-Combat:CreateToggle({
-    Name = "Safe Fling Loop",
-    CurrentValue = false,
-    Callback = function(v)
-        if v then
-            startFling()
-        else
-            stopFling()
-        end
-    end
-})
+refreshAimPlayers()
+Players.PlayerAdded:Connect(refreshAimPlayers)
+Players.PlayerRemoving:Connect(refreshAimPlayers)
