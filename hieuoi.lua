@@ -486,20 +486,106 @@ Players.PlayerRemoving:Connect(function(player)
 end)
 
 -------------------------------------------------
--- ESP TOGGLE
+-- ADVANCED ESP (ANTI INVISIBLE + MORPH + FAR)
+-------------------------------------------------
+
+local espEnabled = false
+local ESP = {}
+
+local function createESP(player)
+
+    if player == LocalPlayer then return end
+
+    local function apply(character)
+
+        if ESP[player] then
+            ESP[player].Highlight:Destroy()
+            ESP[player].Name:Destroy()
+        end
+
+        -------------------------
+        -- HIGHLIGHT
+        -------------------------
+
+        local hl = Instance.new("Highlight")
+        hl.FillColor = Color3.fromRGB(0,255,120)
+        hl.OutlineColor = Color3.fromRGB(0,200,100)
+        hl.FillTransparency = 0.5
+        hl.OutlineTransparency = 0
+        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+        hl.Adornee = character
+        hl.Enabled = espEnabled
+        hl.Parent = game.CoreGui
+
+        -------------------------
+        -- NAME TAG
+        -------------------------
+
+        local bill = Instance.new("BillboardGui")
+        bill.Size = UDim2.new(0,200,0,40)
+        bill.AlwaysOnTop = true
+        bill.StudsOffset = Vector3.new(0,3,0)
+        bill.Adornee = character:FindFirstChild("Head") 
+                    or character:FindFirstChildWhichIsA("BasePart")
+        bill.Parent = game.CoreGui
+
+        local text = Instance.new("TextLabel")
+        text.Size = UDim2.new(1,0,1,0)
+        text.BackgroundTransparency = 1
+        text.Text = player.DisplayName.." ("..player.Name..")"
+        text.TextColor3 = Color3.fromRGB(0,255,120)
+        text.TextStrokeTransparency = 0
+        text.TextScaled = true
+        text.Font = Enum.Font.SourceSansBold
+        text.Parent = bill
+
+        ESP[player] = {
+            Highlight = hl,
+            Name = bill
+        }
+
+    end
+
+    if player.Character then
+        apply(player.Character)
+    end
+
+    player.CharacterAdded:Connect(function(char)
+        task.wait(0.2)
+        apply(char)
+    end)
+
+end
+
+for _,plr in pairs(Players:GetPlayers()) do
+    createESP(plr)
+end
+
+Players.PlayerAdded:Connect(createESP)
+
+Players.PlayerRemoving:Connect(function(plr)
+    if ESP[plr] then
+        ESP[plr].Highlight:Destroy()
+        ESP[plr].Name:Destroy()
+        ESP[plr] = nil
+    end
+end)
+
+-------------------------------------------------
+-- TOGGLE
 -------------------------------------------------
 
 Main:CreateToggle({
-    Name = "Player ESP",
+    Name = "ESP Player",
     CurrentValue = false,
     Callback = function(v)
 
         espEnabled = v
 
-        for _,esp in pairs(espCache) do
-            esp.Enabled = v
+        for _,esp in pairs(ESP) do
+            esp.Highlight.Enabled = v
+            esp.Name.Enabled = v
         end
 
     end
 })
-
