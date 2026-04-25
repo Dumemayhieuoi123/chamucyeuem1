@@ -23,7 +23,7 @@ local UIS = game:GetService("UserInputService")
 -------------------------------------------------
 Main:CreateSlider({
    Name = "WalkSpeed",
-   Range = {16,500},
+   Range = {16,200},
    Increment = 1,
    CurrentValue = 16,
    Callback = function(v)
@@ -33,7 +33,7 @@ Main:CreateSlider({
 })
 
 -------------------------------------------------
--- JUMP POWER
+-- JUMP POWER 
 -------------------------------------------------
 Main:CreateSlider({
    Name = "JumpPower",
@@ -42,7 +42,10 @@ Main:CreateSlider({
    CurrentValue = 50,
    Callback = function(v)
       local hum = LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid")
-      if hum then hum.JumpPower = v end
+      if hum then
+         hum.UseJumpPower = true
+         hum.JumpPower = v
+      end
    end
 })
 
@@ -70,10 +73,21 @@ RunService.Stepped:Connect(function()
 end)
 
 -------------------------------------------------
--- FLY
+-- FLY SYSTEM (2 MODE)
 -------------------------------------------------
+
 local flying = false
 local flySpeed = 60
+local flyMode = "Velocity"
+
+Main:CreateDropdown({
+    Name = "Fly Mode",
+    Options = {"Velocity","TP Walking"},
+    CurrentOption = "Velocity",
+    Callback = function(v)
+        flyMode = v
+    end
+})
 
 Main:CreateToggle({
    Name = "Fly",
@@ -85,7 +99,7 @@ Main:CreateToggle({
 
 Main:CreateSlider({
    Name = "Fly Speed",
-   Range = {20,300},
+   Range = {1,500},
    Increment = 5,
    CurrentValue = 60,
    Callback = function(v)
@@ -93,19 +107,118 @@ Main:CreateSlider({
    end
 })
 
+-------------------------------------------------
+-- VELOCITY FLY
+-------------------------------------------------
+
 RunService.RenderStepped:Connect(function()
-    if flying and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        local hrp = LocalPlayer.Character.HumanoidRootPart
-        local move = Vector3.new()
 
-        if UIS:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
-        if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0,1,0) end
+    if not flying then return end
+    if flyMode ~= "Velocity" then return end
+    if not LocalPlayer.Character then return end
 
-        hrp.Velocity = move * flySpeed
+    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local move = Vector3.new()
+
+    if UIS:IsKeyDown(Enum.KeyCode.W) then
+        move += Camera.CFrame.LookVector
+    end
+
+    if UIS:IsKeyDown(Enum.KeyCode.S) then
+        move -= Camera.CFrame.LookVector
+    end
+
+    if UIS:IsKeyDown(Enum.KeyCode.A) then
+        move -= Camera.CFrame.RightVector
+    end
+
+    if UIS:IsKeyDown(Enum.KeyCode.D) then
+        move += Camera.CFrame.RightVector
+    end
+
+    if UIS:IsKeyDown(Enum.KeyCode.Space) then
+        move += Vector3.new(0,1,0)
+    end
+
+    if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+        move -= Vector3.new(0,1,0)
+    end
+
+    hrp.Velocity = move * flySpeed
+
+end)
+
+-------------------------------------------------
+-- TP WALKING FLY (FIXED)
+-------------------------------------------------
+
+local tpFly = false
+
+RunService.Heartbeat:Connect(function()
+
+    if not flying then 
+        tpFly = false
+        return 
+    end
+
+    if flyMode ~= "TP Walking" then 
+        tpFly = false
+        return 
+    end
+
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+
+    if not hum or not root then return end
+
+    -- bật fly
+    if not tpFly then
+        tpFly = true
+        hum.PlatformStand = true
+    end
+
+    local move = Vector3.new()
+
+    if UIS:IsKeyDown(Enum.KeyCode.W) then
+        move += Camera.CFrame.LookVector
+    end
+
+    if UIS:IsKeyDown(Enum.KeyCode.S) then
+        move -= Camera.CFrame.LookVector
+    end
+
+    if UIS:IsKeyDown(Enum.KeyCode.A) then
+        move -= Camera.CFrame.RightVector
+    end
+
+    if UIS:IsKeyDown(Enum.KeyCode.D) then
+        move += Camera.CFrame.RightVector
+    end
+
+    if UIS:IsKeyDown(Enum.KeyCode.Space) then
+        move += Vector3.new(0,1,0)
+    end
+
+    if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
+        move -= Vector3.new(0,1,0)
+    end
+
+    root.CFrame = root.CFrame + (move * (flySpeed/25))
+
+end)
+
+-- tắt fly trả lại bình thường
+RunService.RenderStepped:Connect(function()
+    if not flying and tpFly then
+        tpFly = false
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").PlatformStand = false
+        end
     end
 end)
 
@@ -427,62 +540,82 @@ refreshAimPlayers()
 Players.PlayerAdded:Connect(refreshAimPlayers)
 Players.PlayerRemoving:Connect(refreshAimPlayers)
 -------------------------------------------------
--- FULL BODY ESP (RESPAWN FIX + FAR RANGE)
+-- FIXED ESP SYSTEM (ON/OFF CLEAN)
 -------------------------------------------------
 
 local espEnabled = false
-local espCache = {}
+local ESP = {}
+
+local function removeESP(player)
+    if ESP[player] then
+        if ESP[player].Highlight then ESP[player].Highlight:Destroy() end
+        if ESP[player].Name then ESP[player].Name:Destroy() end
+        ESP[player] = nil
+    end
+end
 
 local function applyESP(player, character)
-
+    if not espEnabled then return end
     if player == LocalPlayer then return end
     if not character then return end
 
-    if espCache[player] then
-        espCache[player]:Destroy()
-    end
+    removeESP(player)
 
-    local highlight = Instance.new("Highlight")
-    highlight.Name = "CharMucESP"
-    highlight.FillColor = Color3.fromRGB(0,255,120)
-    highlight.OutlineColor = Color3.fromRGB(0,200,100)
-    highlight.FillTransparency = 0.4
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Enabled = espEnabled
-    highlight.Adornee = character
-    highlight.Parent = game.CoreGui
+    local hl = Instance.new("Highlight")
+    hl.FillColor = Color3.fromRGB(0,255,120)
+    hl.OutlineColor = Color3.fromRGB(0,200,100)
+    hl.FillTransparency = 0.5
+    hl.OutlineTransparency = 0
+    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Adornee = character
+    hl.Parent = game.CoreGui
 
-    espCache[player] = highlight
+    local head = character:FindFirstChild("Head") or character:FindFirstChildWhichIsA("BasePart")
 
+    local bill = Instance.new("BillboardGui")
+    bill.Size = UDim2.new(0,200,0,40)
+    bill.AlwaysOnTop = true
+    bill.StudsOffset = Vector3.new(0,3,0)
+    bill.Adornee = head
+    bill.Parent = game.CoreGui
+
+    local text = Instance.new("TextLabel")
+    text.Size = UDim2.new(1,0,1,0)
+    text.BackgroundTransparency = 1
+    text.Text = player.DisplayName.." ("..player.Name..")"
+    text.TextColor3 = Color3.fromRGB(0,255,120)
+    text.TextStrokeTransparency = 0
+    text.TextScaled = true
+    text.Font = Enum.Font.SourceSansBold
+    text.Parent = bill
+
+    ESP[player] = {
+        Highlight = hl,
+        Name = bill
+    }
 end
 
 local function setupPlayer(player)
-
     if player == LocalPlayer then return end
+
+    player.CharacterAdded:Connect(function(char)
+        task.wait(0.2)
+        applyESP(player, char)
+    end)
 
     if player.Character then
         applyESP(player, player.Character)
     end
-
-    player.CharacterAdded:Connect(function(char)
-        task.wait(0.3)
-        applyESP(player, char)
-    end)
-
 end
 
-for _,player in pairs(Players:GetPlayers()) do
-    setupPlayer(player)
+for _,plr in pairs(Players:GetPlayers()) do
+    setupPlayer(plr)
 end
 
 Players.PlayerAdded:Connect(setupPlayer)
 
 Players.PlayerRemoving:Connect(function(player)
-    if espCache[player] then
-        espCache[player]:Destroy()
-        espCache[player] = nil
-    end
+    removeESP(player)
 end)
 
 -------------------------------------------------
@@ -582,10 +715,63 @@ Main:CreateToggle({
 
         espEnabled = v
 
-        for _,esp in pairs(ESP) do
-            esp.Highlight.Enabled = v
-            esp.Name.Enabled = v
+        if not v then
+            -- TẮT: xoá toàn bộ ESP
+            for _,plr in pairs(Players:GetPlayers()) do
+                removeESP(plr)
+            end
+        else
+            -- BẬT: tạo lại ESP
+            for _,plr in pairs(Players:GetPlayers()) do
+                if plr.Character then
+                    applyESP(plr, plr.Character)
+                end
+            end
         end
 
     end
+})
+
+-------------------------------------------------
+-- Night to Light
+-------------------------------------------------
+local Lighting = game:GetService("Lighting")
+
+local lightingBackup = {
+	Brightness = Lighting.Brightness,
+	ClockTime = Lighting.ClockTime,
+	FogEnd = Lighting.FogEnd,
+	FogStart = Lighting.FogStart,
+	Ambient = Lighting.Ambient,
+	OutdoorAmbient = Lighting.OutdoorAmbient,
+	ExposureCompensation = Lighting.ExposureCompensation
+}
+local function EnableBright()
+	Lighting.Brightness = 3
+	Lighting.ClockTime = 14 -- ban ngày
+	Lighting.FogStart = 0
+	Lighting.FogEnd = 100000
+	Lighting.Ambient = Color3.fromRGB(255,255,255)
+	Lighting.OutdoorAmbient = Color3.fromRGB(255,255,255)
+	Lighting.ExposureCompensation = 0.3
+end
+local function DisableBright()
+	for k, v in pairs(lightingBackup) do
+		Lighting[k] = v
+	end
+end
+local brightEnabled = false
+
+Main:CreateToggle({
+	Name = "Bright Mode (nhin trong bong toi)",
+	CurrentValue = false,
+	Callback = function(v)
+		brightEnabled = v
+
+		if v then
+			EnableBright()
+		else
+			DisableBright()
+		end
+	end
 })
