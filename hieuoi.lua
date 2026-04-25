@@ -23,7 +23,7 @@ local UIS = game:GetService("UserInputService")
 -------------------------------------------------
 Main:CreateSlider({
    Name = "WalkSpeed",
-   Range = {16,200},
+   Range = {16,500},
    Increment = 1,
    CurrentValue = 16,
    Callback = function(v)
@@ -37,7 +37,7 @@ Main:CreateSlider({
 -------------------------------------------------
 Main:CreateSlider({
    Name = "JumpPower",
-   Range = {50,200},
+   Range = {50,500},
    Increment = 5,
    CurrentValue = 50,
    Callback = function(v)
