@@ -1,16 +1,16 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "HieuOi Hub",
-   LoadingTitle = "HieuOi Hub",
+   Name = "HieuOi Hub (Beta)",
+   LoadingTitle = "HieuOi Hub (Beta)",
    LoadingSubtitle = "Get the job done",
    ConfigurationSaving = {Enabled = false},
    KeySystem = false
 })
 
 local Main = Window:CreateTab("Main", 4483362458)
-local Aimbot = Window:CreateTab("Aimbot", 4483362458)
-local Combat = Window:CreateTab("Combat (beta)", 4483362458)
+local Aimbot = Window:CreateTab("Aimlock", 4483362458)
+local Combat = Window:CreateTab("Combat", 4483362458)
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -23,7 +23,7 @@ local UIS = game:GetService("UserInputService")
 -------------------------------------------------
 Main:CreateSlider({
    Name = "WalkSpeed",
-   Range = {16,200},
+   Range = {16,500},
    Increment = 1,
    CurrentValue = 16,
    Callback = function(v)
@@ -33,7 +33,7 @@ Main:CreateSlider({
 })
 
 -------------------------------------------------
--- JUMP POWER 
+-- JUMP POWER
 -------------------------------------------------
 Main:CreateSlider({
    Name = "JumpPower",
@@ -73,12 +73,12 @@ RunService.Stepped:Connect(function()
 end)
 
 -------------------------------------------------
--- FLY SYSTEM (2 MODE)
+-- FLY
 -------------------------------------------------
-
 local flying = false
 local flySpeed = 60
 local flyMode = "Velocity"
+local tpFly = false
 
 Main:CreateDropdown({
     Name = "Fly Mode",
@@ -107,10 +107,6 @@ Main:CreateSlider({
    end
 })
 
--------------------------------------------------
--- VELOCITY FLY
--------------------------------------------------
-
 RunService.RenderStepped:Connect(function()
 
     if not flying then return end
@@ -125,23 +121,18 @@ RunService.RenderStepped:Connect(function()
     if UIS:IsKeyDown(Enum.KeyCode.W) then
         move += Camera.CFrame.LookVector
     end
-
     if UIS:IsKeyDown(Enum.KeyCode.S) then
         move -= Camera.CFrame.LookVector
     end
-
     if UIS:IsKeyDown(Enum.KeyCode.A) then
         move -= Camera.CFrame.RightVector
     end
-
     if UIS:IsKeyDown(Enum.KeyCode.D) then
         move += Camera.CFrame.RightVector
     end
-
     if UIS:IsKeyDown(Enum.KeyCode.Space) then
         move += Vector3.new(0,1,0)
     end
-
     if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
         move -= Vector3.new(0,1,0)
     end
@@ -150,23 +141,17 @@ RunService.RenderStepped:Connect(function()
 
 end)
 
--------------------------------------------------
--- TP WALKING FLY (FIXED)
--------------------------------------------------
-
-local tpFly = false
-
 RunService.Heartbeat:Connect(function()
 
-    if not flying then 
-        tpFly = false
-        return 
+    if not flying then
+        if tpFly and LocalPlayer.Character then
+            tpFly = false
+            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").PlatformStand = false
+        end
+        return
     end
 
-    if flyMode ~= "TP Walking" then 
-        tpFly = false
-        return 
-    end
+    if flyMode ~= "TP Walking" then return end
 
     local char = LocalPlayer.Character
     if not char then return end
@@ -176,7 +161,6 @@ RunService.Heartbeat:Connect(function()
 
     if not hum or not root then return end
 
-    -- bật fly
     if not tpFly then
         tpFly = true
         hum.PlatformStand = true
@@ -184,222 +168,45 @@ RunService.Heartbeat:Connect(function()
 
     local move = Vector3.new()
 
-    if UIS:IsKeyDown(Enum.KeyCode.W) then
-        move += Camera.CFrame.LookVector
-    end
-
-    if UIS:IsKeyDown(Enum.KeyCode.S) then
-        move -= Camera.CFrame.LookVector
-    end
-
-    if UIS:IsKeyDown(Enum.KeyCode.A) then
-        move -= Camera.CFrame.RightVector
-    end
-
-    if UIS:IsKeyDown(Enum.KeyCode.D) then
-        move += Camera.CFrame.RightVector
-    end
-
-    if UIS:IsKeyDown(Enum.KeyCode.Space) then
-        move += Vector3.new(0,1,0)
-    end
-
-    if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
-        move -= Vector3.new(0,1,0)
-    end
+    if UIS:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
+    if UIS:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
+    if UIS:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
+    if UIS:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
+    if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
+    if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0,1,0) end
 
     root.CFrame = root.CFrame + (move * (flySpeed/25))
 
 end)
 
--- tắt fly trả lại bình thường
-RunService.RenderStepped:Connect(function()
-    if not flying and tpFly then
-        tpFly = false
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then
-            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").PlatformStand = false
-        end
+-------------------------------------------------
+-- FLING (COMBAT)
+-------------------------------------------------
+Combat:CreateButton({
+    Name = "ChaMuc Fling",
+    Callback = function()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/K1LAS1K/Ultimate-Fling-GUI/main/flingscript.lua"))()
     end
-end)
-
----------------------------------------------------
--- FLING SYSTEM
----------------------------------------------------
-
-local selectedTargets = {}
-local flingActive = false
-local FPDH = workspace.FallenPartsDestroyHeight
-
-local function CharMucFling(TargetPlayer)
-
-    local Character = LocalPlayer.Character
-    if not Character then return end
-
-    local Humanoid = Character:FindFirstChildOfClass("Humanoid")
-    local RootPart = Character:FindFirstChild("HumanoidRootPart")
-
-    if not Humanoid or not RootPart then return end
-
-    local TCharacter = TargetPlayer.Character
-    if not TCharacter then return end
-
-    local TRoot = TCharacter:FindFirstChild("HumanoidRootPart")
-    if not TRoot then return end
-
-    local oldPos = RootPart.CFrame
-
-    workspace.FallenPartsDestroyHeight = 0/0
-
-    local BV = Instance.new("BodyVelocity")
-    BV.Parent = RootPart
-    BV.MaxForce = Vector3.new(9e9,9e9,9e9)
-
-    for i = 1,20 do
-        if not flingActive then break end
-
-        RootPart.CFrame = TRoot.CFrame * CFrame.new(0,1,0)
-
-        RootPart.Velocity = Vector3.new(
-            math.random(-999999,999999),
-            math.random(999999,9999999),
-            math.random(-999999,999999)
-        )
-
-        RootPart.RotVelocity = Vector3.new(999999,999999,999999)
-
-        task.wait()
-    end
-
-    BV:Destroy()
-
-    RootPart.CFrame = oldPos
-    workspace.FallenPartsDestroyHeight = FPDH
-
-end
-
----------------------------------------------------
--- START FLING
----------------------------------------------------
-
-local function StartFling()
-
-    flingActive = true
-
-    task.spawn(function()
-        while flingActive do
-
-            for _,plr in pairs(selectedTargets) do
-                if flingActive and plr then
-                    CharMucFling(plr)
-                    task.wait(0.2)
-                end
-            end
-
-            task.wait(0.1)
-        end
-    end)
-
-end
-
----------------------------------------------------
--- STOP FLING
----------------------------------------------------
-
-local function StopFling()
-    flingActive = false
-end
-
----------------------------------------------------
--- PLAYER DROPDOWN
----------------------------------------------------
-
-local dropdown = Combat:CreateDropdown({
-    Name = "Select Players To Fling",
-    Options = {},
-    MultipleOptions = true,
-    CurrentOption = {},
-    Callback = function(options)
-
-        selectedTargets = {}
-
-        for _,name in pairs(options) do
-            local plr = Players:FindFirstChild(name)
-            if plr then
-                table.insert(selectedTargets, plr)
-            end
-        end
-
-    end,
 })
 
----------------------------------------------------
--- FLING TOGGLE
----------------------------------------------------
-
-Combat:CreateToggle({
-    Name = "Safe Fling Loop",
-    CurrentValue = false,
-    Callback = function(v)
-
-        if v then
-            StartFling()
-        else
-            StopFling()
-        end
-
-    end,
-})
-
----------------------------------------------------
--- REFRESH PLAYER LIST
----------------------------------------------------
-
-local function RefreshPlayers()
-
-    local list = {}
-
-    for _,plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then
-            table.insert(list, plr.Name)
-        end
-    end
-
-    dropdown:Refresh(list)
-
-end
-
-RefreshPlayers()
-
-Players.PlayerAdded:Connect(RefreshPlayers)
-Players.PlayerRemoving:Connect(RefreshPlayers)
 -------------------------------------------------
--- AIMBOT SYSTEM
+-- AIMLOCK
 -------------------------------------------------
-
-local aimbotEnabled = false
-local silentAim = false
-local multiTarget = false
+local aimEnabled = false
 local aimFov = 200
 local targetPlayers = {}
 
--- FOV CIRCLE
 local circle = Drawing.new("Circle")
 circle.Visible = false
-circle.Radius = aimFov
 circle.Thickness = 2
-circle.Color = Color3.fromRGB(255,255,255)
+circle.Color = Color3.fromRGB(0,255,120)
 circle.Filled = false
-circle.NumSides = 100
 
 RunService.RenderStepped:Connect(function()
     circle.Position = UIS:GetMouseLocation()
     circle.Radius = aimFov
-    circle.Visible = aimbotEnabled
+    circle.Visible = aimEnabled
 end)
-
--------------------------------------------------
--- PLAYER DROPDOWN
--------------------------------------------------
 
 local aimDropdown = Aimbot:CreateDropdown({
     Name = "Select Target",
@@ -407,61 +214,26 @@ local aimDropdown = Aimbot:CreateDropdown({
     MultipleOptions = true,
     CurrentOption = {},
     Callback = function(options)
-
         targetPlayers = {}
-
         for _,name in pairs(options) do
             local plr = Players:FindFirstChild(name)
             if plr then
                 table.insert(targetPlayers, plr)
             end
         end
-
     end,
 })
 
--------------------------------------------------
--- ENABLE AIMBOT
--------------------------------------------------
-
 Aimbot:CreateToggle({
-    Name = "Enable Aimbot",
+    Name = "Aimlock",
     CurrentValue = false,
     Callback = function(v)
-        aimbotEnabled = v
+        aimEnabled = v
     end
 })
-
--------------------------------------------------
--- MULTI TARGET
--------------------------------------------------
-
-Aimbot:CreateToggle({
-    Name = "Multi Target",
-    CurrentValue = false,
-    Callback = function(v)
-        multiTarget = v
-    end
-})
-
--------------------------------------------------
--- SILENT AIM
--------------------------------------------------
-
-Aimbot:CreateToggle({
-    Name = "Silent Aim",
-    CurrentValue = false,
-    Callback = function(v)
-        silentAim = v
-    end
-})
-
--------------------------------------------------
--- FOV SIZE
--------------------------------------------------
 
 Aimbot:CreateSlider({
-    Name = "FOV Size",
+    Name = "FOV",
     Range = {50,500},
     Increment = 10,
     CurrentValue = 200,
@@ -470,17 +242,13 @@ Aimbot:CreateSlider({
     end
 })
 
--------------------------------------------------
--- GET CLOSEST TARGET
--------------------------------------------------
-
 local function getClosest()
 
     local closest = nil
     local shortest = aimFov
 
     for _,plr in pairs(targetPlayers) do
-        if plr ~= LocalPlayer and plr.Character and plr.Character:FindFirstChild("Head") then
+        if plr.Character and plr.Character:FindFirstChild("Head") then
 
             local pos, visible = Camera:WorldToViewportPoint(plr.Character.Head.Position)
 
@@ -498,31 +266,19 @@ local function getClosest()
     return closest
 end
 
--------------------------------------------------
--- AIMBOT LOOP
--------------------------------------------------
-
 RunService.RenderStepped:Connect(function()
 
-    if not aimbotEnabled then return end
+    if not aimEnabled then return end
 
     local target = getClosest()
 
     if target and target.Character and target.Character:FindFirstChild("Head") then
-
-        local pos = target.Character.Head.Position
-
-        Camera.CFrame = CFrame.new(Camera.CFrame.Position, pos)
-
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position,target.Character.Head.Position)
     end
 
 end)
 
--------------------------------------------------
--- REFRESH PLAYER LIST
--------------------------------------------------
-
-local function refreshAimPlayers()
+local function refreshAim()
 
     local list = {}
 
@@ -536,11 +292,12 @@ local function refreshAimPlayers()
 
 end
 
-refreshAimPlayers()
-Players.PlayerAdded:Connect(refreshAimPlayers)
-Players.PlayerRemoving:Connect(refreshAimPlayers)
+refreshAim()
+Players.PlayerAdded:Connect(refreshAim)
+Players.PlayerRemoving:Connect(refreshAim)
+
 -------------------------------------------------
--- FIXED ESP SYSTEM (ON/OFF CLEAN)
+-- ESP
 -------------------------------------------------
 
 local espEnabled = false
@@ -548,18 +305,27 @@ local ESP = {}
 
 local function removeESP(player)
     if ESP[player] then
-        if ESP[player].Highlight then ESP[player].Highlight:Destroy() end
-        if ESP[player].Name then ESP[player].Name:Destroy() end
+        if ESP[player].Highlight then
+            ESP[player].Highlight:Destroy()
+        end
+        if ESP[player].Billboard then
+            ESP[player].Billboard:Destroy()
+        end
         ESP[player] = nil
     end
 end
 
-local function applyESP(player, character)
+local function createESP(player)
+
     if not espEnabled then return end
     if player == LocalPlayer then return end
-    if not character then return end
+
+    local char = player.Character
+    if not char then return end
 
     removeESP(player)
+
+    local head = char:FindFirstChild("Head") or char:FindFirstChildWhichIsA("BasePart")
 
     local hl = Instance.new("Highlight")
     hl.FillColor = Color3.fromRGB(0,255,120)
@@ -567,10 +333,8 @@ local function applyESP(player, character)
     hl.FillTransparency = 0.5
     hl.OutlineTransparency = 0
     hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    hl.Adornee = character
+    hl.Adornee = char
     hl.Parent = game.CoreGui
-
-    local head = character:FindFirstChild("Head") or character:FindFirstChildWhichIsA("BasePart")
 
     local bill = Instance.new("BillboardGui")
     bill.Size = UDim2.new(0,200,0,40)
@@ -591,117 +355,42 @@ local function applyESP(player, character)
 
     ESP[player] = {
         Highlight = hl,
-        Name = bill
+        Billboard = bill
     }
+
 end
 
 local function setupPlayer(player)
+
     if player == LocalPlayer then return end
 
-    player.CharacterAdded:Connect(function(char)
-        task.wait(0.2)
-        applyESP(player, char)
+    -- khi respawn
+    player.CharacterAdded:Connect(function()
+        task.wait(0.3)
+        if espEnabled then
+            createESP(player)
+        end
     end)
 
+    -- nếu đã spawn sẵn
     if player.Character then
-        applyESP(player, player.Character)
+        task.wait(0.3)
+        createESP(player)
     end
+
 end
 
+-- player hiện tại
 for _,plr in pairs(Players:GetPlayers()) do
     setupPlayer(plr)
 end
 
+-- player mới
 Players.PlayerAdded:Connect(setupPlayer)
 
+-- player rời
 Players.PlayerRemoving:Connect(function(player)
     removeESP(player)
-end)
-
--------------------------------------------------
--- ADVANCED ESP (ANTI INVISIBLE + MORPH + FAR)
--------------------------------------------------
-
-local espEnabled = false
-local ESP = {}
-
-local function createESP(player)
-
-    if player == LocalPlayer then return end
-
-    local function apply(character)
-
-        if ESP[player] then
-            ESP[player].Highlight:Destroy()
-            ESP[player].Name:Destroy()
-        end
-
-        -------------------------
-        -- HIGHLIGHT
-        -------------------------
-
-        local hl = Instance.new("Highlight")
-        hl.FillColor = Color3.fromRGB(0,255,120)
-        hl.OutlineColor = Color3.fromRGB(0,200,100)
-        hl.FillTransparency = 0.5
-        hl.OutlineTransparency = 0
-        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-        hl.Adornee = character
-        hl.Enabled = espEnabled
-        hl.Parent = game.CoreGui
-
-        -------------------------
-        -- NAME TAG
-        -------------------------
-
-        local bill = Instance.new("BillboardGui")
-        bill.Size = UDim2.new(0,200,0,40)
-        bill.AlwaysOnTop = true
-        bill.StudsOffset = Vector3.new(0,3,0)
-        bill.Adornee = character:FindFirstChild("Head") 
-                    or character:FindFirstChildWhichIsA("BasePart")
-        bill.Parent = game.CoreGui
-
-        local text = Instance.new("TextLabel")
-        text.Size = UDim2.new(1,0,1,0)
-        text.BackgroundTransparency = 1
-        text.Text = player.DisplayName.." ("..player.Name..")"
-        text.TextColor3 = Color3.fromRGB(0,255,120)
-        text.TextStrokeTransparency = 0
-        text.TextScaled = true
-        text.Font = Enum.Font.SourceSansBold
-        text.Parent = bill
-
-        ESP[player] = {
-            Highlight = hl,
-            Name = bill
-        }
-
-    end
-
-    if player.Character then
-        apply(player.Character)
-    end
-
-    player.CharacterAdded:Connect(function(char)
-        task.wait(0.2)
-        apply(char)
-    end)
-
-end
-
-for _,plr in pairs(Players:GetPlayers()) do
-    createESP(plr)
-end
-
-Players.PlayerAdded:Connect(createESP)
-
-Players.PlayerRemoving:Connect(function(plr)
-    if ESP[plr] then
-        ESP[plr].Highlight:Destroy()
-        ESP[plr].Name:Destroy()
-        ESP[plr] = nil
-    end
 end)
 
 -------------------------------------------------
@@ -715,17 +404,13 @@ Main:CreateToggle({
 
         espEnabled = v
 
-        if not v then
-            -- TẮT: xoá toàn bộ ESP
+        if v then
             for _,plr in pairs(Players:GetPlayers()) do
-                removeESP(plr)
+                createESP(plr)
             end
         else
-            -- BẬT: tạo lại ESP
             for _,plr in pairs(Players:GetPlayers()) do
-                if plr.Character then
-                    applyESP(plr, plr.Character)
-                end
+                removeESP(plr)
             end
         end
 
@@ -733,45 +418,39 @@ Main:CreateToggle({
 })
 
 -------------------------------------------------
--- Night to Light
+-- BRIGHT MODE
 -------------------------------------------------
 local Lighting = game:GetService("Lighting")
+local backup = {}
 
-local lightingBackup = {
-	Brightness = Lighting.Brightness,
-	ClockTime = Lighting.ClockTime,
-	FogEnd = Lighting.FogEnd,
-	FogStart = Lighting.FogStart,
-	Ambient = Lighting.Ambient,
-	OutdoorAmbient = Lighting.OutdoorAmbient,
-	ExposureCompensation = Lighting.ExposureCompensation
-}
-local function EnableBright()
-	Lighting.Brightness = 3
-	Lighting.ClockTime = 14 -- ban ngày
-	Lighting.FogStart = 0
-	Lighting.FogEnd = 100000
-	Lighting.Ambient = Color3.fromRGB(255,255,255)
-	Lighting.OutdoorAmbient = Color3.fromRGB(255,255,255)
-	Lighting.ExposureCompensation = 0.3
+local function enableBright()
+    backup = {
+        Brightness = Lighting.Brightness,
+        ClockTime = Lighting.ClockTime,
+        FogEnd = Lighting.FogEnd,
+        Ambient = Lighting.Ambient
+    }
+
+    Lighting.Brightness = 3
+    Lighting.ClockTime = 14
+    Lighting.FogEnd = 100000
+    Lighting.Ambient = Color3.new(1,1,1)
 end
-local function DisableBright()
-	for k, v in pairs(lightingBackup) do
-		Lighting[k] = v
-	end
+
+local function disableBright()
+    for k,v in pairs(backup) do
+        Lighting[k] = v
+    end
 end
-local brightEnabled = false
 
 Main:CreateToggle({
-	Name = "Bright Mode (nhin trong bong toi)",
-	CurrentValue = false,
-	Callback = function(v)
-		brightEnabled = v
-
-		if v then
-			EnableBright()
-		else
-			DisableBright()
-		end
-	end
+    Name = "Bright Mode",
+    CurrentValue = false,
+    Callback = function(v)
+        if v then
+            enableBright()
+        else
+            disableBright()
+        end
+    end
 })
