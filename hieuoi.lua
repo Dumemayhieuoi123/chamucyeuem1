@@ -183,7 +183,7 @@ end)
 -- FLING (COMBAT)
 -------------------------------------------------
 Combat:CreateButton({
-    Name = "ChaMuc Fling",
+    Name = "Fling GUI (Click)",
     Callback = function()
 loadstring(game:HttpGet("https://raw.githubusercontent.com/K1LAS1K/Ultimate-Fling-GUI/main/flingscript.lua"))()
     end
