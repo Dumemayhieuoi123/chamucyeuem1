@@ -1,3 +1,5 @@
+print("HieuOi Checking...")
+
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
@@ -50,6 +52,150 @@ Main:CreateSlider({
 })
 
 -------------------------------------------------
+-- FLY SYSTEM (2 BUTTON - NO CONFLICT)
+-------------------------------------------------
+
+local adminFly = false
+local velocityFly = false
+local flySpeed = 80
+
+local BV, BG
+
+local function isTyping()
+    return UIS:GetFocusedTextBox() ~= nil
+end
+
+local function stopAllFly()
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local root = char:FindFirstChild("HumanoidRootPart")
+
+    if hum then
+        hum.PlatformStand = false
+    end
+
+    if BV then BV:Destroy() BV = nil end
+    if BG then BG:Destroy() BG = nil end
+
+    if root then
+        root.Velocity = Vector3.new()
+    end
+
+    adminFly = false
+    velocityFly = false
+end
+
+-------------------------------------------------
+-- SPEED
+-------------------------------------------------
+
+Main:CreateSlider({
+   Name = "Fly Speed",
+   Range = {10,300},
+   Increment = 5,
+   CurrentValue = 80,
+   Callback = function(v)
+      flySpeed = v
+   end
+})
+
+-------------------------------------------------
+-- ADMIN FLY
+-------------------------------------------------
+
+Main:CreateToggle({
+   Name = "Normal Fly",
+   CurrentValue = false,
+   Callback = function(v)
+
+      stopAllFly()
+
+      adminFly = v
+      if not v then return end
+
+      local char = LocalPlayer.Character
+      if not char then return end
+
+      local hum = char:FindFirstChildOfClass("Humanoid")
+      local root = char:FindFirstChild("HumanoidRootPart")
+      if not hum or not root then return end
+
+      hum.PlatformStand = true
+
+      BV = Instance.new("BodyVelocity")
+      BV.MaxForce = Vector3.new(9e9,9e9,9e9)
+      BV.Velocity = Vector3.new()
+      BV.Parent = root
+
+      BG = Instance.new("BodyGyro")
+      BG.MaxTorque = Vector3.new(9e9,9e9,9e9)
+      BG.P = 9e4
+      BG.CFrame = root.CFrame
+      BG.Parent = root
+
+   end
+})
+
+-------------------------------------------------
+-- VELOCITY FLY
+-------------------------------------------------
+
+Main:CreateToggle({
+   Name = "Velocity Fly",
+   CurrentValue = false,
+   Callback = function(v)
+
+      stopAllFly()
+
+      velocityFly = v
+      if not v then return end
+
+   end
+})
+
+-------------------------------------------------
+-- LOOP
+-------------------------------------------------
+
+RunService.RenderStepped:Connect(function()
+
+    if isTyping() then return end
+
+    local char = LocalPlayer.Character
+    if not char then return end
+
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local move = Vector3.new()
+
+    if UIS:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
+    if UIS:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
+    if UIS:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
+    if UIS:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
+    if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
+    if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0,1,0) end
+
+    ---------------------------------
+    --normal FLY
+    ---------------------------------
+    if adminFly and BV and BG then
+        BV.Velocity = move * flySpeed
+        BG.CFrame = Camera.CFrame
+    end
+
+    ---------------------------------
+    -- VELOCITY FLY
+    ---------------------------------
+    if velocityFly then
+        root.Velocity = move * flySpeed
+    end
+
+end)
+
+-------------------------------------------------
 -- NOCLIP
 -------------------------------------------------
 local noclip = false
@@ -70,113 +216,6 @@ RunService.Stepped:Connect(function()
          end
       end
    end
-end)
-
--------------------------------------------------
--- FLY
--------------------------------------------------
-local flying = false
-local flySpeed = 60
-local flyMode = "Velocity"
-local tpFly = false
-
-Main:CreateDropdown({
-    Name = "Fly Mode",
-    Options = {"Velocity","TP Walking"},
-    CurrentOption = "Velocity",
-    Callback = function(v)
-        flyMode = v
-    end
-})
-
-Main:CreateToggle({
-   Name = "Fly",
-   CurrentValue = false,
-   Callback = function(v)
-      flying = v
-   end,
-})
-
-Main:CreateSlider({
-   Name = "Fly Speed",
-   Range = {1,500},
-   Increment = 5,
-   CurrentValue = 60,
-   Callback = function(v)
-      flySpeed = v
-   end
-})
-
-RunService.RenderStepped:Connect(function()
-
-    if not flying then return end
-    if flyMode ~= "Velocity" then return end
-    if not LocalPlayer.Character then return end
-
-    local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
-
-    local move = Vector3.new()
-
-    if UIS:IsKeyDown(Enum.KeyCode.W) then
-        move += Camera.CFrame.LookVector
-    end
-    if UIS:IsKeyDown(Enum.KeyCode.S) then
-        move -= Camera.CFrame.LookVector
-    end
-    if UIS:IsKeyDown(Enum.KeyCode.A) then
-        move -= Camera.CFrame.RightVector
-    end
-    if UIS:IsKeyDown(Enum.KeyCode.D) then
-        move += Camera.CFrame.RightVector
-    end
-    if UIS:IsKeyDown(Enum.KeyCode.Space) then
-        move += Vector3.new(0,1,0)
-    end
-    if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
-        move -= Vector3.new(0,1,0)
-    end
-
-    hrp.Velocity = move * flySpeed
-
-end)
-
-RunService.Heartbeat:Connect(function()
-
-    if not flying then
-        if tpFly and LocalPlayer.Character then
-            tpFly = false
-            LocalPlayer.Character:FindFirstChildOfClass("Humanoid").PlatformStand = false
-        end
-        return
-    end
-
-    if flyMode ~= "TP Walking" then return end
-
-    local char = LocalPlayer.Character
-    if not char then return end
-
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    local root = char:FindFirstChild("HumanoidRootPart")
-
-    if not hum or not root then return end
-
-    if not tpFly then
-        tpFly = true
-        hum.PlatformStand = true
-    end
-
-    local move = Vector3.new()
-
-    if UIS:IsKeyDown(Enum.KeyCode.W) then move += Camera.CFrame.LookVector end
-    if UIS:IsKeyDown(Enum.KeyCode.S) then move -= Camera.CFrame.LookVector end
-    if UIS:IsKeyDown(Enum.KeyCode.A) then move -= Camera.CFrame.RightVector end
-    if UIS:IsKeyDown(Enum.KeyCode.D) then move += Camera.CFrame.RightVector end
-    if UIS:IsKeyDown(Enum.KeyCode.Space) then move += Vector3.new(0,1,0) end
-    if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move -= Vector3.new(0,1,0) end
-
-    root.CFrame = root.CFrame + (move * (flySpeed/25))
-
 end)
 
 -------------------------------------------------
